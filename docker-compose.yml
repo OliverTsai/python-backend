@@ -16,6 +16,7 @@ services:
       - JWT_ACCESS_TOKEN_EXPIRES=1209600  # 14天，與前端cookie設置一致
     volumes:
       - ./:/app
+      - ./tests/gov.csv:/app/tests/gov.csv
     depends_on:
       - db
     networks:
