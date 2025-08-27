@@ -4,6 +4,7 @@ from app.models import ApiKey, Company, CompanyGov  # 添加 CompanyGov 導入
 from datetime import datetime
 import pandas as pd
 import os
+import gc  # 添加垃圾回收模組
 
 def seed_data():
     """
@@ -14,7 +15,7 @@ def seed_data():
     # 檢查是否已經有 API 密鑰，如果沒有則添加
     if ApiKey.query.count() == 0:
         print("添加默認 API 密鑰...")
-        default_api_key = ApiKey(key='default_api_key_2025', is_active=True)
+        default_api_key = ApiKey(key='admin123', is_active=True)
         db.session.add(default_api_key)
         
     # 添加一些示例公司數據
@@ -41,9 +42,7 @@ def seed_data():
             )
         ]
         db.session.add_all(companies)
-    
-    # 讀取 CSV 文件並打印前 10 行
-    # csv_path = 'csv_data/gov.csv'
+        db.session.commit()
     
     # --- CSV 文件路徑修正 ---
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # /app
@@ -72,59 +71,79 @@ def seed_data():
                 'industrial_name4'         # 行業名稱4
             ]
 
-            # 讀取 CSV 文件，沒有標題行，使用我們定義的列名
-            df = pd.read_csv(csv_path, header=None, names=column_names)
-
-            # 打印前 10 行數據
-            print("CSV 文件的前 10 行數據：")
-            print(df.head(10))
+            print("目前的數據庫中 CompanyGov 記錄數量:", CompanyGov.query.count())
             
             # 如果需要將 CSV 數據導入到數據庫
             if CompanyGov.query.count() == 0:
                 print("從 CSV 文件添加政府公司資料...")
-                for index, row in df.iterrows():
-                    try:
-                        # 使用當前時間作為資料創建和修改時間
-                        current_time = datetime.utcnow()
-                        # 從統一編號中提取公司名稱的一部分作為 company_name_part
-                        company_name = row['company_name']
-                        company_name_part = company_name[:3] if len(company_name) > 3 else company_name
-                        
-                        # 從地址中提取縣市部分作為 company_address_part
-                        address = row['company_address']
-                        address_parts = address.split('縣') if '縣' in address else address.split('市')
-                        company_address_part = address_parts[0] + ('縣' if '縣' in address else '市') if len(address_parts) > 1 else address
-                        
-                        company_gov = CompanyGov(
-                            _id=row['business_no'],
-                            business_no=row['business_no'],
-                            capital_amount=str(row['capital_amount']),
-                            company_address=row['company_address'],
-                            company_address_part=company_address_part,
-                            company_name=row['company_name'],
-                            company_name_part=company_name_part,
-                            create_date=str(row['create_date']),
-                            data_create_time=current_time,
-                            data_last_modified_time=current_time,
-                            head_office_business_no=row['head_office_business_no'] if pd.notna(row['head_office_business_no']) else "",
-                            industrial_code1=str(row['industrial_code1']) if pd.notna(row['industrial_code1']) else "",
-                            industrial_code2=str(row['industrial_code2']) if pd.notna(row['industrial_code2']) else "",
-                            industrial_code3=str(row['industrial_code3']) if pd.notna(row['industrial_code3']) else "",
-                            industrial_code4=str(row['industrial_code4']) if pd.notna(row['industrial_code4']) else "",
-                            industrial_name1=str(row['industrial_name1']) if pd.notna(row['industrial_name1']) else "",
-                            industrial_name2=str(row['industrial_name2']) if pd.notna(row['industrial_name2']) else "",
-                            industrial_name3=str(row['industrial_name3']) if pd.notna(row['industrial_name3']) else "",
-                            industrial_name4=str(row['industrial_name4']) if pd.notna(row['industrial_name4']) else "",
-                            organization_type=row['organization_type'],
-                            use_business_invoice=row['use_business_invoice']
-                        )
-                        db.session.add(company_gov)
-                    except Exception as e:
-                        print(f"處理第 {index} 行時出錯: {e}")
-                        continue
                 
-                db.session.commit()
-                print(f"已從 CSV 文件導入 {df.shape[0]} 條記錄")
+                # 批次處理參數
+                batch_size = 1000  # 每批處理的記錄數
+                total_imported = 0
+                
+                # 使用 chunksize 參數分批讀取 CSV 文件
+                for chunk_df in pd.read_csv(csv_path, header=None, names=column_names, chunksize=batch_size):
+                    print(f"正在處理第 {total_imported} 到 {total_imported + len(chunk_df)} 條記錄...")
+                    
+                    # 創建批次記錄
+                    batch_records = []
+                    for index, row in chunk_df.iterrows():
+                        try:
+                            # 使用當前時間作為資料創建和修改時間
+                            current_time = datetime.utcnow()
+                            # 從統一編號中提取公司名稱的一部分作為 company_name_part
+                            company_name = row['company_name']
+                            company_name_part = company_name[:3] if len(company_name) > 3 else company_name
+                            
+                            # 從地址中提取縣市部分作為 company_address_part
+                            address = row['company_address']
+                            address_parts = address.split('縣') if '縣' in address else address.split('市')
+                            company_address_part = address_parts[0] + ('縣' if '縣' in address else '市') if len(address_parts) > 1 else address
+                            
+                            company_gov = CompanyGov(
+                                _id=row['business_no'],
+                                business_no=row['business_no'],
+                                capital_amount=str(row['capital_amount']),
+                                company_address=row['company_address'],
+                                company_address_part=company_address_part,
+                                company_name=row['company_name'],
+                                company_name_part=company_name_part,
+                                create_date=str(row['create_date']),
+                                data_create_time=current_time,
+                                data_last_modified_time=current_time,
+                                head_office_business_no=row['head_office_business_no'] if pd.notna(row['head_office_business_no']) else "",
+                                industrial_code1=str(row['industrial_code1']) if pd.notna(row['industrial_code1']) else "",
+                                industrial_code2=str(row['industrial_code2']) if pd.notna(row['industrial_code2']) else "",
+                                industrial_code3=str(row['industrial_code3']) if pd.notna(row['industrial_code3']) else "",
+                                industrial_code4=str(row['industrial_code4']) if pd.notna(row['industrial_code4']) else "",
+                                industrial_name1=str(row['industrial_name1']) if pd.notna(row['industrial_name1']) else "",
+                                industrial_name2=str(row['industrial_name2']) if pd.notna(row['industrial_name2']) else "",
+                                industrial_name3=str(row['industrial_name3']) if pd.notna(row['industrial_name3']) else "",
+                                industrial_name4=str(row['industrial_name4']) if pd.notna(row['industrial_name4']) else "",
+                                organization_type=row['organization_type'],
+                                use_business_invoice=row['use_business_invoice']
+                            )
+                            batch_records.append(company_gov)
+                        except Exception as e:
+                            print(f"處理第 {index} 行時出錯: {e}")
+                            continue
+                    
+                    # 批次添加記錄到數據庫
+                    if batch_records:
+                        try:
+                            db.session.add_all(batch_records)
+                            db.session.commit()
+                            total_imported += len(batch_records)
+                            print(f"成功導入 {len(batch_records)} 條記錄，總計: {total_imported}")
+                        except Exception as e:
+                            db.session.rollback()
+                            print(f"批次提交時出錯: {e}")
+                    
+                    # 清理記憶體
+                    del batch_records
+                    gc.collect()
+                
+                print(f"已從 CSV 文件導入總計 {total_imported} 條記錄")
         except Exception as e:
             print(f"讀取 CSV 文件時出錯: {e}")
     else:
@@ -159,9 +178,6 @@ def seed_data():
                 )
             ]
             db.session.add_all(company_govs)
+            db.session.commit()
 
-    
-    
-    # 提交所有變更
-    db.session.commit()
     print("種子數據添加完成！")
