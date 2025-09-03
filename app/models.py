@@ -120,6 +120,61 @@ class CompanyGov(db.Model):
             'UseBusinessInvoice': self.use_business_invoice
         }
 
+# New增 CompanyGovStaging 表格    
+class CompanyGovStaging(db.Model):
+    __tablename__ = 'company_gov_staging'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    _id = db.Column(db.String(20), nullable=False)   # ⚠️ staging 不設 unique
+    business_no = db.Column(db.String(20), nullable=False)
+    capital_amount = db.Column(db.String(50))
+    company_address = db.Column(db.String(500))
+    company_address_part = db.Column(db.String(100))
+    company_name = db.Column(db.String(200), nullable=False)
+    company_name_part = db.Column(db.String(100))
+    create_date = db.Column(db.String(20))
+    data_create_time = db.Column(db.DateTime)
+    data_last_modified_time = db.Column(db.DateTime)
+    head_office_business_no = db.Column(db.String(20))
+    industrial_code1 = db.Column(db.String(20))
+    industrial_code2 = db.Column(db.String(20))
+    industrial_code3 = db.Column(db.String(20))
+    industrial_code4 = db.Column(db.String(20))
+    industrial_name1 = db.Column(db.String(100))
+    industrial_name2 = db.Column(db.String(100))
+    industrial_name3 = db.Column(db.String(100))
+    industrial_name4 = db.Column(db.String(100))
+    organization_type = db.Column(db.String(50))
+    use_business_invoice = db.Column(db.String(1))
+    
+    def __repr__(self):
+        return f'<CompanyGovStaging {self.business_no}>'
+    
+    def to_dict(self):
+        return {
+            '_id': self._id,
+            'BusinessNo': self.business_no,
+            'CapitalAmount': self.capital_amount,
+            'CompanyAddress': self.company_address,
+            'CompanyAddressPart': self.company_address_part,
+            'CompanyName': self.company_name,
+            'CompanyNamePart': self.company_name_part,
+            'CreateDate': self.create_date,
+            'DataCreateTime': self.data_create_time.isoformat() if self.data_create_time else None,
+            'DataLastModifiedTime': self.data_last_modified_time.isoformat() if self.data_last_modified_time else None,
+            'HeadOfficeBusinessNo': self.head_office_business_no,
+            'IndustrialCode1': self.industrial_code1,
+            'IndustrialCode2': self.industrial_code2,
+            'IndustrialCode3': self.industrial_code3,
+            'IndustrialCode4': self.industrial_code4,
+            'IndustrialName1': self.industrial_name1,
+            'IndustrialName2': self.industrial_name2,
+            'IndustrialName3': self.industrial_name3,
+            'IndustrialName4': self.industrial_name4,
+            'OrganizationType': self.organization_type,
+            'UseBusinessInvoice': self.use_business_invoice
+        }
+
 class Industrial(db.Model):
     __tablename__ = 'industrials'
     

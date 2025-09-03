@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models import Company, SearchCursor
+from app.models import Company,CompanyGovStaging, SearchCursor
 from app import db
 import json
 import uuid
@@ -31,6 +31,62 @@ def compress_data(data):
     json_str = json.dumps(data)
     compressed = gzip.compress(json_str.encode('utf-8'))
     return base64.b64encode(compressed).decode('utf-8')
+
+@main_bp.route('/CreateCursor', methods=['GET'])
+@jwt_required()
+def search_company_aggregation():
+    """
+    搜尋 CompanyGov 資料表中的公司資料
+    根據關鍵字在多個欄位中進行模糊搜尋
+    """
+    collection = request.args.get('collection')
+    keywords = request.args.getlist('keywords')
+    
+    if not collection or not keywords:
+        return jsonify({'error': '缺少必要參數'}), 400
+    
+    # 根據 collection 參數決定要查詢的資料表
+    if collection == 'CompanyAggregation':
+        # 根據關鍵字搜尋公司
+        query = CompanyGovStaging.query
+        
+        for keyword in keywords:
+            # 在多個字段中搜索關鍵字
+            query = query.filter(
+                (CompanyGovStaging.company_address_part.ilike(f'%{keyword}%')) |
+                (CompanyGovStaging.company_name.ilike(f'%{keyword}%')) |
+                (CompanyGovStaging.industrial_name1.ilike(f'%{keyword}%')) |
+                (CompanyGovStaging.industrial_name2.ilike(f'%{keyword}%')) |
+                (CompanyGovStaging.industrial_name3.ilike(f'%{keyword}%')) |
+                (CompanyGovStaging.industrial_name4.ilike(f'%{keyword}%'))
+            )
+    else:
+        return jsonify({'error': f'不支援的資料集: {collection}'}), 400
+    
+    # 獲取結果
+    results = query.all()
+    result_ids = [str(company.id) for company in results]
+    total_count = len(results)
+    
+    # 創建游標記錄
+    cursor_id = str(uuid.uuid4())
+    expires_at = datetime.datetime.utcnow() + datetime.timedelta(hours=24)  # 游標24小時後過期
+    
+    new_cursor = SearchCursor(
+        cursor_id=cursor_id,
+        keywords=json.dumps(keywords),
+        result_ids=json.dumps(result_ids),
+        total_count=total_count,
+        expires_at=expires_at
+    )
+    
+    db.session.add(new_cursor)
+    db.session.commit()
+    
+    return jsonify({
+        'cursorId': cursor_id,
+        'totalCount': total_count
+    }), 200
 
 @main_bp.route('/CreateCursor', methods=['GET'])
 @jwt_required()

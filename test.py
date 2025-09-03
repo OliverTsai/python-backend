@@ -25,7 +25,7 @@ def search_company_by_address():
         address_query = """
         SELECT business_no, company_name, company_address, capital_amount, 
                organization_type, create_date, industrial_code1, industrial_name1
-        FROM company_govs
+        FROM company_gov_staging
         WHERE company_address LIKE %s
         LIMIT 20  -- 限制返回記錄數量，避免結果過多
         """
@@ -41,7 +41,7 @@ def search_company_by_address():
             # 查詢符合條件的總記錄數
             count_query = """
             SELECT COUNT(*)
-            FROM company_govs
+            FROM company_gov_staging
             WHERE company_address LIKE %s
             """
             cursor.execute(count_query, ("%台中%",))
@@ -51,16 +51,16 @@ def search_company_by_address():
             print("未找到地址包含「台中」的記錄")
             
             # 查詢資料庫中的總記錄數
-            cursor.execute("SELECT COUNT(*) FROM company_govs")
+            cursor.execute("SELECT COUNT(*) FROM company_gov_staging")
             total_records = cursor.fetchone()[0]
-            print(f"\n資料庫中 company_govs 表共有 {total_records} 條記錄")
+            print(f"\n資料庫中 company_gov_staging 表共有 {total_records} 條記錄")
             
             # 如果有記錄，隨機顯示一條作為參考
             if total_records > 0:
                 cursor.execute("""
                 SELECT business_no, company_name, company_address, capital_amount, 
                        organization_type, create_date, industrial_code1, industrial_name1
-                FROM company_govs
+                FROM company_gov_staging
                 LIMIT 1
                 """)
                 sample_record = cursor.fetchone()
@@ -70,7 +70,7 @@ def search_company_by_address():
                 # 檢查是否有任何地址欄位包含中文字符
                 cursor.execute("""
                 SELECT COUNT(*)
-                FROM company_govs
+                FROM company_gov_staging
                 WHERE company_address ~ '[一-龥]'
                 """)
                 chinese_count = cursor.fetchone()[0]
